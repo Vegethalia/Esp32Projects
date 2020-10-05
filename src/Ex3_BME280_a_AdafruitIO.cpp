@@ -6,7 +6,7 @@
 #include "Adafruit_BME280.h"
 
 #define ADAIO_USER "kaketa"
-#define ADAIO_KEY "aio_CPly808RzG7Xu4rhtcsT3E0hNUEd"
+#define ADAIO_KEY "aio_LlrK40UAoXZGP6Ev1UtOi9RL11sU"
 #define WIFI_SSID "Picadero"
 #define WIFI_PASS "Vegethalia"
 
