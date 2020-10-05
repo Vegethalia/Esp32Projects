@@ -6,7 +6,7 @@
 #include "Adafruit_BME280.h"
 
 #define ADAIO_USER "kaketa"
-#define ADAIO_KEY "aio_LlrK40UAoXZGP6Ev1UtOi9RL11sU"
+#define ADAIO_KEY "aio_YYrT62pjvhgqRXlUfEcljOPrH2bH"
 #define WIFI_SSID "Picadero"
 #define WIFI_PASS "Vegethalia"
 
@@ -14,7 +14,7 @@
 #define PIN_I2C_SCL 22
 #define PIN_LED_MIO 32
 #define PIN_LED_PWM 25
-#define PIN_MOTOR_PWM 17
+//#define PIN_MOTOR_PWM 17
 #define I2C_ADDRESS_BME280 0x76
 
 #define PWMCHANNEL 0
@@ -60,7 +60,7 @@ void setup()
   // put your setup code here, to run once:
   Serial.begin(115200);
   pinMode(PIN_LED_MIO, OUTPUT);
-  pinMode(PIN_MOTOR_PWM, OUTPUT);
+//  pinMode(PIN_MOTOR_PWM, OUTPUT);
 
 		//Configure PWM pin
 	ledcSetup(PWMCHANNEL, 20000, PWMRESOLUTION); //channel0, freq=¿1000?, resolution=8bits
@@ -116,8 +116,6 @@ void loop()
   iowifi.run();
 
 	auto now=millis();
-
-	digitalWrite(PIN_MOTOR_PWM, HIGH);
 
 	if((now-_lastProcessMillis)>=_delayTimeUpt) {
 		_lastProcessMillis=now;
