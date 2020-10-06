@@ -4,11 +4,7 @@
 #include <Arduino.h>
 #include "AdafruitIO_WiFi.h"
 #include "Adafruit_MQTT.h"
-
-#define ADAIO_USER "kaketa"
-#define ADAIO_KEY "aio_CPly808RzG7Xu4rhtcsT3E0hNUEd"
-#define WIFI_SSID "Picadero"
-#define WIFI_PASS "Vegethalia"
+#include "mykeys.h"
 
 #define PIN_LED_MIO 32
 #define PIN_POT 34

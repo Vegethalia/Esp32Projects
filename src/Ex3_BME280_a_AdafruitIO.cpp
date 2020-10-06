@@ -4,11 +4,7 @@
 #include "Adafruit_MQTT.h"
 #include "Adafruit_Sensor.h"
 #include "Adafruit_BME280.h"
-
-#define ADAIO_USER "kaketa"
-#define ADAIO_KEY "aio_YYrT62pjvhgqRXlUfEcljOPrH2bH"
-#define WIFI_SSID "Picadero"
-#define WIFI_PASS "Vegethalia"
+#include "mykeys.h"
 
 #define PIN_I2C_SDA 21
 #define PIN_I2C_SCL 22

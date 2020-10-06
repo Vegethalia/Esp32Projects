@@ -1,9 +1,7 @@
 /*
 #include <Arduino.h>
 #include "WiFi.h"
-
-#define WIFI_SSID "Picadero"
-#define WIFI_PASS "Vegethalia"
+#include "mykeys.h"
 
 //EXAMPLE BASED ON https://github.com/espressif/arduino-esp32/blob/master/libraries/WiFi/examples/WiFiScan/WiFiScan.ino
 
