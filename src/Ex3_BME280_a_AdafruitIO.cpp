@@ -1,4 +1,4 @@
-
+/*
 #include <Arduino.h>
 #include "AdafruitIO_WiFi.h"
 #include "Adafruit_MQTT.h"
@@ -10,7 +10,6 @@
 #define PIN_I2C_SCL 22
 #define PIN_LED_MIO 32
 #define PIN_LED_PWM 25
-//#define PIN_MOTOR_PWM 17
 #define I2C_ADDRESS_BME280 0x76
 
 #define PWMCHANNEL 0
@@ -229,3 +228,4 @@ void FirstTimeProcess()
 	// }
 
 }
+*/
