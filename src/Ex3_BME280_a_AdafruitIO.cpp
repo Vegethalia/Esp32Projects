@@ -1,9 +1,10 @@
-/*
+
 #include <Arduino.h>
-#include "AdafruitIO_WiFi.h"
-#include "Adafruit_MQTT.h"
-#include "Adafruit_Sensor.h"
-#include "Adafruit_BME280.h"
+#include <AdafruitIO_WiFi.h>
+#include <Adafruit_MQTT.h>
+#include <Adafruit_Sensor.h>
+#include <Adafruit_BME280.h>
+#include <U8g2lib.h>
 #include "mykeys.h"
 
 #define PIN_I2C_SDA 21
@@ -15,20 +16,26 @@
 #define PWMCHANNEL 0
 #define PWMRESOLUTION 8
 
+#define SCREEN_WIDTH 128 // OLED display width, in pixels
+#define SCREEN_HEIGHT 64 // OLED display height, in pixels
+
 #define FEED_TURN_ON_PWN "TurnOnLed"
 #define FEED_INTENSITY_PWN "LedIntensity"
 
 #define SEALEVELPRESSURE_HPA (1013.25)
+#define PRESSURE_OFFSET 14 //looks like my sensor always returns the real pressure minus this offset
 
 //-----FORWARD DECLARATIONS
-void uploadValues();
+bool UpdateValues(); //returns true if values were successfully read from BME280 sensor
 void onMessageOnOff(AdafruitIO_Data *data);
 void FirstTimeProcess();
+void PrintValuesOnScreen(int millis);
+//void PrintRemainingTime(int millis);
 //-----FORWARD DECLARATIONS
 
 AdafruitIO_WiFi iowifi(ADAIO_USER, ADAIO_KEY, WIFI_SSID, WIFI_PASS);
 
-// set up the 'temp' feed
+// SetUp ADAFRUIT Feeds
 AdafruitIO_Feed *adafruit_temp = iowifi.feed("Temperatura");
 AdafruitIO_Feed *adafruit_hum = iowifi.feed("Humitat");
 AdafruitIO_Feed *adafruit_press = iowifi.feed("Pressio");
@@ -36,15 +43,24 @@ AdafruitIO_Feed *adafruit_press = iowifi.feed("Pressio");
 AdafruitIO_Feed *adafruitread_blueledon = iowifi.feed(FEED_TURN_ON_PWN);
 AdafruitIO_Feed *adafruitread_blueledpower = iowifi.feed(FEED_INTENSITY_PWN);
 
+//SetUp SH1106
+U8G2_SH1106_128X64_NONAME_2_HW_I2C u8g2(U8G2_R0, PIN_I2C_SCL, PIN_I2C_SDA); //R0 = no rotate
+
 //Our own TwoWire instance so we can configure wich pins use as I2C
 TwoWire I2CBME = TwoWire(0);
-Adafruit_BME280 bme; // I2C
+Adafruit_BME280 bme; // BME280 I2C
 //Adafruit_BME280 bme(BME_CS); // hardware SPI
 //Adafruit_BME280 bme(BME_CS, BME_MOSI, BME_MISO, BME_SCK); // software SPI
 
+//VARIABLES
 unsigned long _delayTimeUpt=30000;
-unsigned long _delayTimeLoop=500;
+unsigned long _delayTimeLoop=50;
 unsigned long _lastProcessMillis=0;
+
+float _lastTempValue=0.0f;
+float _lastHumValue=0.0f;
+float _lastPressValue=1000.0f;
+byte  _lastClockChar=0;
 
 //state vars
 bool _BlueLedON=false;
@@ -57,27 +73,34 @@ void setup()
   pinMode(PIN_LED_MIO, OUTPUT);
 //  pinMode(PIN_MOTOR_PWM, OUTPUT);
 
+  // wait for serial monitor to open
+  while(!Serial);
+
 		//Configure PWM pin
 	ledcSetup(PWMCHANNEL, 20000, PWMRESOLUTION); //channel0, freq=¿1000?, resolution=8bits
 	ledcAttachPin(PIN_LED_PWM, PWMCHANNEL);
 	//ledcAttachPin(PIN_MOTOR_PWM, PWMCHANNEL);
 
-  // wait for serial monitor to open
-  while(!Serial);
-
 	//Detect BME
 	Serial.println("Detecting BME280...");
-	I2CBME.begin(PIN_I2C_SDA, PIN_I2C_SCL, 100000);
+	I2CBME.begin(PIN_I2C_SDA, PIN_I2C_SCL, 100000); //0=default 100000 100khz
 
-  // default settings
-  // (you can also pass in a Wire library object like &Wire2)
-  bool status = bme.begin(I2C_ADDRESS_BME280, &I2CBME);  
+  // default settings (you can also pass in a Wire library object like &Wire2)
+  bool status = bme.begin(I2C_ADDRESS_BME280, &Wire);// &I2CBME);  
   if (!status) {
     Serial.println("Could not find a valid BME280 sensor, check wiring!");
+		delay(100);
     while (1);
   }
 	Serial.println("BME280 sensor found!!");
   Serial.println();
+
+  log_d("Begin Display...");
+	u8g2.setBusClock(100000);
+  u8g2.begin();
+	u8g2.enableUTF8Print();		// enable UTF8 support for the Arduino print()
+	u8g2.setContrast(_BlueLedIntensity); //set default contrast
+	PrintValuesOnScreen(_delayTimeUpt); //Print 1st values
 
   // connect to io.adafruit.com
   Serial.print("Connecting to Adafruit IO");
@@ -105,9 +128,10 @@ void setup()
 
 void loop() 
 {
-  // iowifi.run(); is required for all sketches.
-  // it should always be present at the top of your loop function. 
-  // it keeps the client connected to io.adafruit.com, and processes any incoming data.
+  //iowifi.run(); is required for all sketches.
+  //it should always be present at the top of your loop function. 
+  //it keeps the client connected to io.adafruit.com, and processes any incoming data.
+  // iowifi.run();
   iowifi.run();
 
 	auto now=millis();
@@ -119,15 +143,14 @@ void loop()
 		delay(200);	
 		digitalWrite(PIN_LED_MIO, LOW);	// turn off the LED
 
-	//	printValues();
-		uploadValues();
+		UpdateValues();
 	}
+//	else {
+//		PrintRemainingTime(_delayTimeUpt-(now-_lastProcessMillis));
+//	}
+	PrintValuesOnScreen(_delayTimeUpt-(now-_lastProcessMillis));
 
-  delay(_delayTimeLoop);	
-
-  // if(!adafruit_power->save(percent)) {
-  //   Serial.println("Error updating AdaFruit Io Value :(");
-  // }
+   delay(_delayTimeLoop);	
 }
 
 
@@ -165,45 +188,115 @@ void onMessageOnOff(AdafruitIO_Data *data)
 		else {
 			_BlueLedIntensity=data->toInt();
 		}
+		u8g2.setContrast(_BlueLedIntensity);
 		if(_BlueLedON) {
 			ledcWrite(PWMCHANNEL, _BlueLedIntensity);
 		}
 	}
 }
 
-void uploadValues()
+void PrintValuesOnScreen(int millisPending)
+{
+	char buffer[128];
+	char c='-';
+	int8_t fh=10, h;
+	//int printTime=millis();
+
+	switch(_lastClockChar) {
+		case 0:
+			c='\\';
+			break;
+		case 1:
+			c='|';
+			break;
+		case 2:
+			c='/';
+			break;
+		case 3:
+			c='-';
+			break;
+	}
+	_lastClockChar=(_lastClockChar+1)%4;
+
+	u8g2.firstPage();
+  do {
+    u8g2.setFont(u8g2_font_sirclivethebold_tr); //7 pixels
+		snprintf(buffer, sizeof(buffer), "Valors Actuals");
+//		auto strwidth=u8g2.getStrWidth(buffer);
+		//u8g2.setCursor((SCREEN_WIDTH-strwidth)/2, h);
+		u8g2.setCursor(0, fh); u8g2.print(buffer); 
+
+    u8g2.setFont(u8g2_font_profont11_mf); //7 pixels monospace
+		h=fh*2.4;
+		u8g2.setCursor(5, h); 
+		snprintf(buffer, sizeof(buffer), "%-11s:[%2.1fºC]", "Temperatura", _lastTempValue);
+		u8g2.print(buffer);
+		h+=fh*1.4;
+		snprintf(buffer, sizeof(buffer), "%-11s:[%d%%]", "Humitat", (int)_lastHumValue);
+		u8g2.setCursor(5, h); u8g2.print(buffer);
+		h+=fh*1.4;
+		snprintf(buffer, sizeof(buffer), "%-12s:[%dhPa]", "Pressió", (int)_lastPressValue);
+		u8g2.setCursor(5, h); u8g2.print(buffer);
+
+    u8g2.setFont(u8g2_font_profont10_mf); //6 pixels monospace
+		snprintf(buffer, sizeof(buffer), "%c %ds %c", c, millisPending/1000, c);
+		u8g2.drawStr(15, 64, buffer);
+  } while ( u8g2.nextPage() );
+
+	//log_d("Updated Screen in [%dms]...",  millis()-printTime);
+}
+
+bool UpdateValues()
 {
 	char buffer[100];
 	float temp=bme.readTemperature();
 	float hum=bme.readHumidity();
 	float press=bme.readPressure()/100.0;
+	bool err=false;
 //	float alt=bme.readAltitude(SEALEVELPRESSURE_HPA);
 
-	if(!isnan(temp) && temp>(-20) && temp<100 && !adafruit_temp->save(temp)) {
-		Serial.println("Error updating temperature :(");
+	if(!isnan(temp) && temp>(-20) && temp<100){
+		_lastTempValue=temp;
+		if(!adafruit_temp->save(_lastTempValue)) {
+			Serial.println("Error updating temperature :(");
+		}
+		sprintf(buffer, "Temperature = %2.1fºC", _lastTempValue);
+		Serial.println(buffer);
 	}
-	sprintf(buffer, "Temperature = %2.1fºC", temp);
-	Serial.println(buffer);
-
-	if(!isnan(hum) && hum>=0 && hum<=100 && !adafruit_hum->save(hum)) {
-		Serial.println("Error updating humnidity :(");
+	else {
+		Serial.println("Error reading temperature :(");
+		err=true;
 	}
-	sprintf(buffer, "Humidity = %2.1f%%", hum);
-	Serial.println(buffer);
 
-	if(!isnan(press) && press>900 && press<1100 && !adafruit_press->save(press)) {
-		Serial.println("Error updating pressure :(");
+	if(!isnan(hum) && hum>=0 && hum<=100) {
+		_lastHumValue=hum;
+		if(!adafruit_hum->save(_lastHumValue)) {
+			Serial.println("Error updating humnidity :(");
+		}
+		sprintf(buffer, "Humidity = %2.1f%%", _lastHumValue);
+		Serial.println(buffer);
 	}
-	sprintf(buffer, "Pressure = %3.1fhpa", press);
-	Serial.println(buffer);
+	else {
+		Serial.println("Error reading humidity :(");
+		err=true;
+	}
 
-	// if(!adafruit_alt->save(alt)) {
-	// 	Serial.println("Error updating altitude :(");
-	// }
-	// sprintf(buffer, "Altitude = %3.1fm", alt);
-	//Serial.println(buffer);
+	if(!isnan(press) && press>900 && press<1100 ) {
+		_lastPressValue=press+PRESSURE_OFFSET;
+		if(!adafruit_press->save(_lastPressValue)) {
+			Serial.println("Error updating pressure :(");
+		}
+		sprintf(buffer, "Pressure = %3.1fhpa", _lastPressValue);
+		Serial.println(buffer);
+	}
+	else {
+		Serial.println("Error reading pressure :(");
+		err=true;
+	}
 
 	Serial.println();
+
+	return !err;
 }
 
 void FirstTimeProcess()
@@ -226,6 +319,4 @@ void FirstTimeProcess()
 	// if(!adafruit_alt->exists()) {
 	//   Serial.println("Altitude feed not found!!");
 	// }
-
 }
-*/
