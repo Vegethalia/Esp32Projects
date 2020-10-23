@@ -1,4 +1,6 @@
-#include "esp_partition.h"
+#include <esp_partition.h>
+#include <esp_bt_main.h>
+#include <esp_bt.h>
 
 //prints the partition table in log_d
 void PrintPartitions()
@@ -34,4 +36,22 @@ void PrintMemoryInfo()
   log_d("Free heap: %d", ESP.getFreeHeap());
   log_d("Total PSRAM: %d", ESP.getPsramSize());
   log_d("Free PSRAM: %d", ESP.getFreePsram());
+}
+
+//TEST!!!
+void ShutDownBT()
+{
+	//Turn off BT
+	switch(esp_bluedroid_get_status()) {
+		case ESP_BLUEDROID_STATUS_UNINITIALIZED: log_d("BLUEDROID_STATUS_UNINITIALIZED"); break;
+		case ESP_BLUEDROID_STATUS_INITIALIZED: log_d("BLUEDROID_STATUS_INITIALIZED"); break;
+		case ESP_BLUEDROID_STATUS_ENABLED: log_d("BLUEDROID_STATUS_ENABLED"); break;
+	}
+	log_d("esp_bt_controller_get_status()=%d", esp_bt_controller_get_status());
+	if(esp_bluedroid_disable()!=ESP_OK) {
+		log_d("esp_bluedroid_disable error!");
+	}
+	if(esp_bluedroid_deinit()!=ESP_OK) {
+		log_d("esp_bluedroid_deinit error!");
+	}
 }
