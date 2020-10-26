@@ -48,5 +48,5 @@ Remember to install the PlatformIO extension in VSCode in order to use this proj
 	
 * __Ex6_SH1106Screen.cpp__
 	- Basic example just to show how to use the U8G2 library with the SH1106 128x64 module screen
-	![Fast & Ugly Circuit Schema](https://github.com/Vegethalia/Esp32Projects/blob/master/images/Ex6_Schema.png)
-	![SH1106 showing text](https://github.com/Vegethalia/Esp32Projects/blob/master/images/Ex6_WorkingScreen.png)
+	![Fast & Ugly Circuit Schema](https://github.com/Vegethalia/Esp32Projects/blob/master/images/Ex6_Schema.jpg)
+	![SH1106 showing text](https://github.com/Vegethalia/Esp32Projects/blob/master/images/Ex6_WorkingScreen.jpg)
