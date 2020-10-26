@@ -41,4 +41,8 @@ Remember to install the PlatformIO extension in VSCode in order to use this proj
 	Connected!! IP=[192.168.1.165]  Gateway=[192.168.1.1] DNS=[212.230.135.2]
 	Press 'R' to scan again.
 	```
+* __Ex5_ReadPartitionTable.cpp__
+	- Prints the partition table present in the Esp32
+	- Prints the total/free heap memory and the total/free PSRAM (if available)
+	![Example of output](https://github.com/Vegethalia/Esp32Projects/blob/master/images/Ex5_PartitionInfoExample.png)
 	
