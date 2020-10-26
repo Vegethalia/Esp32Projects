@@ -15,8 +15,8 @@ Remember to install the PlatformIO extension in VSCode in order to use this proj
 	- Turn on a led everytime we upload data into AdafruitIO.
 	- Read toggle from AdafruitIO feed to turn on a different LED
 	- Read slider from AdafruitIO feed to define the intensity of a LED using PWM
-	![Fast & Ugly Circuit Schema](https://github.com/Vegethalia/Esp32Projects/blob/master/images/Ex3_Schema.jpg  | width=300)
-	![Example of AdafruitIO dashboard](https://github.com/Vegethalia/Esp32Projects/blob/master/images/Ex3_AdafruitDashboardExample.png | width=300)
+	<img src="https://github.com/Vegethalia/Esp32Projects/blob/master/images/Ex3_Schema.jpg" alt="Fast & Ugly Circuit Schema" width="300"/>
+	<img src="https://github.com/Vegethalia/Esp32Projects/blob/master/images/Ex3_AdafruitDashboardExample.png" alt="Example of AdafruitIO dashboard" width="400"/>
 
 * __Ex4_ScanWifiNetworks.cpp__
 	- Scan available wifi networks and show them in the terminal (including 5GHz).
@@ -44,9 +44,10 @@ Remember to install the PlatformIO extension in VSCode in order to use this proj
 * __Ex5_ReadPartitionTable.cpp__
 	- Prints the partition table present in the Esp32
 	- Prints the total/free heap memory and the total/free PSRAM (if available)
-	![Example of output](https://github.com/Vegethalia/Esp32Projects/blob/master/images/Ex5_PartitionInfoExample.png | width=300)
+	<img src="https://github.com/Vegethalia/Esp32Projects/blob/master/images/Ex5_PartitionInfoExample.png" alt="Example of output" width="600"/>
 	
 * __Ex6_SH1106Screen.cpp__
 	- Basic example just to show how to use the U8G2 library with the SH1106 128x64 module screen
-	![Fast & Ugly Circuit Schema](https://github.com/Vegethalia/Esp32Projects/blob/master/images/Ex6_Schema.jpg | width=300)
-	![SH1106 showing text](https://github.com/Vegethalia/Esp32Projects/blob/master/images/Ex6_WorkingScreen.jpg | width=300)
+	<img src="https://github.com/Vegethalia/Esp32Projects/blob/master/images/Ex6_Schema.jpg" alt="Fast & Ugly Circuit Schema" width="300"/>
+	<img src="https://github.com/Vegethalia/Esp32Projects/blob/master/images/Ex6_WorkingScreen.jpg" alt="SH1106 showing text" width="350"/>
+
