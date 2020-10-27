@@ -1,39 +1,51 @@
+
 #include <Arduino.h>
 #include <WiFi.h>
 #include <PubSubClient.h>
+#include <string>
 #include "modules/MyBME280.h"
 #include "mykeys.h" //header containing sensitive information. Not included in repo. You will need to define the missing constants.
 
-#define ADAFRUIT_ADDR "io.adafruit.com"
-#define ADAFRUIT_PORT 1883
-
-// ADAFRUIT Feeds
-#define FEED_TEMPERATURE "/feeds/temperatura"
-#define FEED_HUMIDITY    "/feeds/humitat"
-#define FEED_PRESSURE    "/feeds/pressio"
-// //AdafruitIO_Feed *adafruit_alt = iowifi.feed("Altitut");
-// AdafruitIO_Feed *adafruitread_blueledon = iowifi.feed(FEED_TURN_ON_PWN);
-// AdafruitIO_Feed *adafruitread_blueledpower = iowifi.feed(FEED_INTENSITY_PWN);
-#define PRESSURE_OFFSET 14 //looks like my sensor always returns the real pressure minus this offset
-
+//PINS & ADDRESSES...
 #define PIN_I2C_SDA        21
 #define PIN_I2C_SCL        22
 #define PIN_LED            32
-#define PIN_BUTTON         35
+#define PIN_LED_PWM        25
 #define I2C_ADDRESS_BME280 0x76
 #define I2C_BUS_SPEED      100000 //100000, 400000
 
+#define PWMCHANNEL         0
+#define PWMRESOLUTION      8
+
+// ADAFRUIT Feeds / Related stuff
+#define ADAFRUIT_ADDR      "io.adafruit.com"
+#define ADAFRUIT_PORT      1883
+
+#define FEED_TEMPERATURE   "/feeds/temperatura"
+#define FEED_HUMIDITY      "/feeds/humitat"
+#define FEED_PRESSURE      "/feeds/pressio"
+#define FEED_TURN_ON_PWM   "/feeds/turnonled"
+#define FEED_INTENSITY_PWN "/feeds/ledintensity"
+
+#define PRESSURE_OFFSET 14 //looks like my sensor always returns the real pressure minus this offset
+
 //GLOBAL OBJECTS
-WiFiClient _TheWifi;
-PubSubClient _ThePubSub;
-TwoWire _TheIc2Wire(0);
-//Adafruit_BME280 _TheBME; // BME280 I2C
-MyBME280 _TheBME;
+WiFiClient    _TheWifi;
+PubSubClient  _ThePubSub;
+TwoWire       _TheIc2Wire(0);
+MyBME280      _TheBME;
 
 //TIMING VARS
 unsigned long _delayTimeUpt=30000;
 unsigned long _delayTimeLoop=50;
 unsigned long _lastProcessMillis=0;
+
+//FORWARD DECLARATIONS
+void PubSubCallback(char *pTopic, uint8_t *pData, unsigned int dalaLength);
+
+//state vars
+bool _BlueLedON=false;
+byte _BlueLedIntensity=64; //1/4 intensity at 8 bits
 
 void setup()
 {
@@ -42,7 +54,9 @@ void setup()
   while(!Serial);
 
 	pinMode(PIN_LED, OUTPUT);
-	pinMode(PIN_BUTTON, INPUT);
+	//Configure PWM pin
+	ledcSetup(PWMCHANNEL, 10000, PWMRESOLUTION); //channel0, freq=¿10000?, resolution=8bits
+	ledcAttachPin(PIN_LED_PWM, PWMCHANNEL);
 
 	//Initialize I2C bus
 	log_d("Initializing i2c sda=%d scl=%d speed=%dkhz", PIN_I2C_SDA, PIN_I2C_SCL, I2C_BUS_SPEED/1000);
@@ -67,7 +81,7 @@ void loop()
 {
 	bool rdy=true;
 
-auto now=millis();
+	auto now=millis();
 
 	if((now-_lastProcessMillis)>=_delayTimeUpt) {
 		_lastProcessMillis=now;
@@ -88,9 +102,19 @@ auto now=millis();
 			if(!_ThePubSub.connected()) {
 				_ThePubSub.setClient(_TheWifi);
 				_ThePubSub.setServer(ADAFRUIT_ADDR, ADAFRUIT_PORT);
+				_ThePubSub.setCallback(PubSubCallback);
 				if(!_ThePubSub.connect("PChanMQTT", ADAIO_USER, ADAIO_KEY)) {
 					log_d("ERROR!! PubSubClient was not able to connect to AdafruitIO!!");
 					rdy=false;
+				}
+				else { //Subscribe to the on/off button and the slider
+					log_d("PubSubClient connected to AdafruitIO!!");
+					if(!_ThePubSub.subscribe((std::string(ADAIO_USER).append(FEED_TURN_ON_PWM)).c_str())) {
+						log_d("ERROR!! PubSubClient was not able to suibscribe to [%s]", FEED_TURN_ON_PWM);
+					}
+					if(!_ThePubSub.subscribe((std::string(ADAIO_USER).append(FEED_INTENSITY_PWN)).c_str())) {
+						log_d("ERROR!! PubSubClient was not able to suibscribe to [%s]", FEED_INTENSITY_PWN);
+					}
 				}
 			}
 		}
@@ -103,5 +127,41 @@ auto now=millis();
 		}
 	}
 
+	if(_ThePubSub.connected()) {
+		_ThePubSub.loop(); //allow the pubsubclient to process incoming messages
+	}
 	delay(_delayTimeLoop);	
+}
+
+void PubSubCallback(char *pTopic, uint8_t *pData, unsigned int dataLenght)
+{
+	std::string theTopic(pTopic);
+	std::string theMsg;
+
+	for(uint16_t i=0; i<dataLenght; i++) {
+		theMsg.push_back((char)pData[i]);
+	}
+	log_d("Received message from [%s]: [%s]", theTopic.c_str(), theMsg.c_str());
+
+	if(theTopic.find(FEED_TURN_ON_PWM)!=std::string::npos) {
+		if(theMsg=="ON") {
+			log_d("Turning on the blue LED!, intensity=%d", _BlueLedIntensity); 
+			_BlueLedON=true;
+			ledcWrite(PWMCHANNEL, _BlueLedIntensity);
+		}
+		else {
+			log_d("Turning off the blue led...");
+			_BlueLedON=false;
+			ledcWrite(PWMCHANNEL, 0);
+		}
+	}
+	else if(theTopic.find(FEED_INTENSITY_PWN)!=std::string::npos) {
+		auto intensity=std::atoi(theMsg.c_str());
+		log_d("Changing led intensity=%d", intensity); 
+		_BlueLedIntensity=intensity;
+		if(_BlueLedON) {
+			ledcWrite(PWMCHANNEL, _BlueLedIntensity);
+		}
+	}
+	
 }
