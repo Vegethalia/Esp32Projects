@@ -3,6 +3,7 @@
 #include <WiFi.h>
 #include <PubSubClient.h>
 #include <string>
+#include <Adafruit_TSL2591.h>
 #include "modules/MyBME280.h"
 #include "mykeys.h" //header containing sensitive information. Not included in repo. You will need to define the missing constants.
 
@@ -26,22 +27,31 @@
 #define FEED_PRESSURE      "/feeds/pressio"
 #define FEED_TURN_ON_PWM   "/feeds/turnonled"
 #define FEED_INTENSITY_PWN "/feeds/ledintensity"
+#define FEED_LUX           "/feeds/lux"
 
-#define PRESSURE_OFFSET 14 //looks like my sensor always returns the real pressure minus this offset
+#define PRESSURE_OFFSET    14    //looks like my sensor always returns the real pressure minus this offset
+#define LUX_TMIN_GAIN      10000 //Minimum Lux threshold to decrease timing/gain
+#define LUX_TMAX_GAIN      30000 //Maximum Lux threshold to decrease timing/gain
 
 //GLOBAL OBJECTS
 WiFiClient    _TheWifi;
 PubSubClient  _ThePubSub;
 TwoWire       _TheIc2Wire(0);
 MyBME280      _TheBME;
+Adafruit_TSL2591 _TheTSL = Adafruit_TSL2591(2591); // pass in a number for the sensor identifier (for your use later)
 
 //TIMING VARS
 unsigned long _delayTimeUpt=30000;
 unsigned long _delayTimeLoop=50;
 unsigned long _lastProcessMillis=0;
 
+//Adafruit_TSL2591
+tsl2591Gain_t _lastTslGain=TSL2591_GAIN_MED;
+tsl2591IntegrationTime_t _lastTslIntegrationTime=TSL2591_INTEGRATIONTIME_300MS;
+
 //FORWARD DECLARATIONS
 void PubSubCallback(char *pTopic, uint8_t *pData, unsigned int dalaLength);
+float AdvancedTSL2591Read();
 
 //state vars
 bool _BlueLedON=false;
@@ -66,6 +76,16 @@ void setup()
 	//Initialize BME280
 	_TheBME.Init(I2C_ADDRESS_BME280, _TheIc2Wire, 20000);
 	_TheBME.SetPressureOffset(PRESSURE_OFFSET);
+
+	//Initialize the TSL2591
+	if(_TheTSL.begin())  {
+    log_d("Found a TSL2591 sensor");
+		_TheTSL.setGain(_lastTslGain); // 25x gain
+		_TheTSL.setTiming(_lastTslIntegrationTime);
+  }
+  else {
+    log_d("No sensor found ... check your wiring?");
+  }
 
 	//Initialize Wifi
 	wl_status_t statuswf = WiFi.begin(WIFI_SSID, WIFI_PASS);
@@ -124,6 +144,10 @@ void loop()
 				_ThePubSub.publish((std::string(ADAIO_USER).append(FEED_HUMIDITY)).c_str(), String(_TheBME.GetLatestHumidity()).c_str());
 				_ThePubSub.publish((std::string(ADAIO_USER).append(FEED_PRESSURE)).c_str(), String(_TheBME.GetLatestPressure()).c_str());
 			}
+			auto lux = AdvancedTSL2591Read();
+			if(lux>=0) {
+				_ThePubSub.publish((std::string(ADAIO_USER).append(FEED_LUX)).c_str(), String(lux).c_str());
+			}
 		}
 	}
 
@@ -163,5 +187,47 @@ void PubSubCallback(char *pTopic, uint8_t *pData, unsigned int dataLenght)
 			ledcWrite(PWMCHANNEL, _BlueLedIntensity);
 		}
 	}
-	
+}
+float AdvancedTSL2591Read(void)
+{
+  // More advanced data read example. Read 32 bits with top 16 bits IR, bottom 16 bits full spectrum
+  // That way you can do whatever math and comparisons you want!
+  uint32_t lum = _TheTSL.getFullLuminosity();
+  uint16_t ir, full, visible;
+  ir = lum >> 16;
+  full = lum & 0xFFFF;
+	visible = full - ir;
+
+	float lux = _TheTSL.calculateLux(full, ir);
+	bool changeGain=false;
+
+	log_d("TSL2591 --> Last Visible=%d IR=%d LUX=%2.1f", visible, ir, lux);
+
+	//auto adjust gain/timmin based on thresholds
+	if(lux<0) { //overflow!!
+		if (_lastTslGain > tsl2591Gain_t::TSL2591_GAIN_LOW) {
+			_lastTslGain = (tsl2591Gain_t)(_lastTslGain - 0x10);
+		}
+		//_lastTslIntegrationTime = tsl2591IntegrationTime_t::TSL2591_INTEGRATIONTIME_300MS;
+		changeGain = true;
+		log_d("TSL2591 --> OVERFLOW!! Decreasing gain to %d, time to %dms", _lastTslGain, (_lastTslIntegrationTime + 1) * 100);
+	}
+	else if (visible < LUX_TMIN_GAIN)	{ //low values, increase gain!
+		if(_lastTslGain < tsl2591Gain_t::TSL2591_GAIN_HIGH) { //increase gain
+			_lastTslGain = (tsl2591Gain_t)(_lastTslGain + 0x10);
+			changeGain = true;
+		}
+	}
+	else if (visible > LUX_TMAX_GAIN)	{ //high values, decrease gain!
+		if (_lastTslGain > tsl2591Gain_t::TSL2591_GAIN_LOW) {
+			_lastTslGain = (tsl2591Gain_t)(_lastTslGain - 0x10);
+			changeGain = true;
+		}
+	}
+	if(changeGain) {
+		_TheTSL.setGain(_lastTslGain);
+		_TheTSL.setTiming(_lastTslIntegrationTime);
+		log_d("TSL2591 --> Changed GAIN to %d -- Integration Time  to %dms", _lastTslGain, (_lastTslIntegrationTime + 1) * 100);
+	}
+	return lux;
 }
