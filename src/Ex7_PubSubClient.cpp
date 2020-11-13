@@ -1,4 +1,4 @@
-
+/*
 #include <Arduino.h>
 #include <WiFi.h>
 #include <PubSubClient.h>
@@ -30,8 +30,8 @@
 #define FEED_LUX           "/feeds/lux"
 
 #define PRESSURE_OFFSET    14    //looks like my sensor always returns the real pressure minus this offset
-#define LUX_TMIN_GAIN      10000 //Minimum Lux threshold to decrease timing/gain
-#define LUX_TMAX_GAIN      30000 //Maximum Lux threshold to decrease timing/gain
+#define LUX_TMIN_GAIN      5000  //Minimum Lux threshold to decrease timing/gain
+#define LUX_TMAX_GAIN      20000 //Maximum Lux threshold to decrease timing/gain
 
 //GLOBAL OBJECTS
 WiFiClient    _TheWifi;
@@ -212,13 +212,13 @@ float AdvancedTSL2591Read(void)
 		changeGain = true;
 		log_d("TSL2591 --> OVERFLOW!! Decreasing gain to %d, time to %dms", _lastTslGain, (_lastTslIntegrationTime + 1) * 100);
 	}
-	else if (visible < LUX_TMIN_GAIN)	{ //low values, increase gain!
+	else if (visible*10 < LUX_TMIN_GAIN)	{ //low values, increase gain!
 		if(_lastTslGain < tsl2591Gain_t::TSL2591_GAIN_HIGH) { //increase gain
 			_lastTslGain = (tsl2591Gain_t)(_lastTslGain + 0x10);
 			changeGain = true;
 		}
 	}
-	else if (visible > LUX_TMAX_GAIN)	{ //high values, decrease gain!
+	else if (visible*10 > LUX_TMAX_GAIN)	{ //high values, decrease gain!
 		if (_lastTslGain > tsl2591Gain_t::TSL2591_GAIN_LOW) {
 			_lastTslGain = (tsl2591Gain_t)(_lastTslGain - 0x10);
 			changeGain = true;
@@ -231,3 +231,4 @@ float AdvancedTSL2591Read(void)
 	}
 	return lux;
 }
+*/
