@@ -1,4 +1,4 @@
-/*
+
 #include <Arduino.h>
 #include <AdafruitIO_WiFi.h>
 #include <Adafruit_MQTT.h>
@@ -12,6 +12,7 @@
 #define PIN_I2C_SCL 22
 #define PIN_LED_MIO 32
 #define PIN_LED_PWM 25
+#define PIN_BUTTON  4
 #define I2C_ADDRESS_BME280 0x76
 #define I2C_BUS_SPEED      100000 //100000
 
@@ -26,6 +27,8 @@
 
 #define SEALEVELPRESSURE_HPA (1013.25)
 #define PRESSURE_OFFSET 14 //looks like my sensor always returns the real pressure minus this offset
+
+#define DEBOUNCE_TIME 250 // Filtre anti-rebond (debouncer)
 
 //-----FORWARD DECLARATIONS
 bool UpdateValues(); //returns true if values were successfully read from BME280 sensor
@@ -46,7 +49,8 @@ AdafruitIO_Feed *adafruitread_blueledon = iowifi.feed(FEED_TURN_ON_PWN);
 AdafruitIO_Feed *adafruitread_blueledpower = iowifi.feed(FEED_INTENSITY_PWN);
 
 //SetUp SH1106
-U8G2_SH1106_128X64_NONAME_F_HW_I2C u8g2(U8G2_R0, PIN_I2C_SCL, PIN_I2C_SDA); //R0 = no rotate
+//U8G2_SH1106_128X64_NONAME_F_HW_I2C u8g2(U8G2_R0, PIN_I2C_SCL, PIN_I2C_SDA); //R0 = no rotate
+U8G2_SSD1306_128X64_NONAME_2_HW_I2C u8g2(U8G2_R0, PIN_I2C_SCL, PIN_I2C_SDA);
 
 //Our own TwoWire instance so we can configure wich pins use as I2C
 TwoWire I2CBME = TwoWire(0);
@@ -69,14 +73,33 @@ uint16_t _lastAvgUpdateTime=0; //_totalUpdateTime/_numUpdates of the last period
 
 //state vars
 bool _BlueLedON=false;
+bool _UpdateRequired=false;
 byte _BlueLedIntensity=50; //default intensity
+
+volatile uint32_t _DebounceTimer = 0;
+
+void IRAM_ATTR ButtonPressed()
+{
+	if (millis() - _DebounceTimer>=DEBOUNCE_TIME) {
+		_DebounceTimer = millis();
+		Serial.println("INTERRUPTED BY BUTTON!!");
+
+		int pinValue = digitalRead(PIN_BUTTON);
+		log_d("[%d] Pin value=%d", (int)millis(), pinValue);
+		
+		_BlueLedON = !_BlueLedON;
+		_UpdateRequired=true;
+	}
+	
+}
 
 void setup() 
 {
   // put your setup code here, to run once:
   Serial.begin(115200);
   pinMode(PIN_LED_MIO, OUTPUT);
-//  pinMode(PIN_MOTOR_PWM, OUTPUT);
+	pinMode(PIN_BUTTON, INPUT);
+	//  pinMode(PIN_MOTOR_PWM, OUTPUT);
 
   // wait for serial monitor to open
   while(!Serial);
@@ -102,10 +125,10 @@ void setup()
 
   log_d("Begin Display...");
 	u8g2.setBusClock(I2C_BUS_SPEED);
-	u8g2.beginSimple();// does not clear the display and does not wake up the display  user is responsible for calling clearDisplay() and setPowerSave(0) 
-//  u8g2.begin();
+//	u8g2.beginSimple();// does not clear the display and does not wake up the display  user is responsible for calling clearDisplay() and setPowerSave(0) 
+  u8g2.begin();
 	u8g2.enableUTF8Print();		// enable UTF8 support for the Arduino print()
-//	u8g2.setContrast(_BlueLedIntensity); //set default contrast
+	u8g2.setContrast(_BlueLedIntensity); //set default contrast
 //	PrintValuesOnScreen(_delayTimeUpt); //Print 1st values
 
   // connect to io.adafruit.com
@@ -130,6 +153,8 @@ void setup()
 	if(adafruitread_blueledpower) {
 		adafruitread_blueledpower->onMessage(onMessageOnOff);
 	}
+
+	attachInterrupt(PIN_BUTTON, ButtonPressed, RISING);
 }
 
 void loop() 
@@ -164,6 +189,15 @@ void loop()
 			_totalUpdateTime=_numUpdates=0;
 		}
 		// log_d("Stopping wifi: %d", esp_wifi_stop());
+	}
+	if(_UpdateRequired) {
+		if (_BlueLedON)	{ //turn on screen
+			u8g2.setPowerSave(0);
+			u8g2.setContrast(_BlueLedIntensity);
+		}
+		else	{ //turn off screen
+			u8g2.setPowerSave(1);
+		}
 	}
 	if(_BlueLedON) {
 		PrintValuesOnScreen(_delayTimeUpt-(now-_lastProcessMillis));
@@ -240,9 +274,9 @@ void PrintValuesOnScreen(int millisPending)
 		_lastAvgUpdateTime=_totalUpdateTime/_numUpdates;
 	}
 
-	//	u8g2.firstPage();
-	// do {
-	u8g2.clearBuffer();
+		u8g2.firstPage();
+	 do {
+	//u8g2.clearBuffer();
     u8g2.setFont(u8g2_font_sirclivethebold_tr); //7 pixels
 		snprintf(buffer, sizeof(buffer), "Valors Actuals");
 //		auto strwidth=u8g2.getStrWidth(buffer);
@@ -264,8 +298,8 @@ void PrintValuesOnScreen(int millisPending)
     u8g2.setFont(u8g2_font_profont10_mf); //6 pixels monospace
 		snprintf(buffer, sizeof(buffer), "%c %2ds %c     [%3dms]", c, millisPending/1000, c, _lastAvgUpdateTime);
 		u8g2.drawStr(15, 64, buffer);
-  //} while ( u8g2.nextPage() );
-	u8g2.sendBuffer();
+  } while ( u8g2.nextPage() );
+	//u8g2.sendBuffer();
 
 	//log_d("Updated Screen in [%dms]...",  millis()-printTime);
 	_numUpdates++;
@@ -346,4 +380,3 @@ void FirstTimeProcess()
 	//   Serial.println("Altitude feed not found!!");
 	// }
 }
-*/
