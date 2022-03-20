@@ -1,14 +1,16 @@
+/*
 #include <Arduino.h>
+#include <SoftwareSerial.h>
 #include "mykeys.h" //header containing sensitive information. Not included in repo. You will need to define the missing constants.
 
 #define TINY_GSM_MODEM_SIM800 // definição do modem usado (SIM800L)
 
 // Define the serial console for debug prints, if needed
-#define TINY_GSM_DEBUG Serial
+//#define TINY_GSM_DEBUG Serial
 
 // Range to attempt to autobaud
 #define GSM_AUTOBAUD_MIN 9600
-#define GSM_AUTOBAUD_MAX 57600
+#define GSM_AUTOBAUD_MAX 9600 //57600
 
 #include <TinyGsmClient.h>		// biblioteca com comandos GSM
 
@@ -18,7 +20,10 @@
 #define CHECK_GPRS_EVERY_MS 20000
 
 // objeto de comunicação serial do SIM800L
-HardwareSerial SerialGSM(2);
+#define GSMPIN_RX 19
+#define GSMPIN_TX 18
+//HardwareSerial SerialGSM(2);
+SoftwareSerial SerialGSM(GSMPIN_RX, GSMPIN_TX);
 
 // // objeto da bibliteca com as funções GSM
 // TinyGsm modemGSM(SerialGSM);
@@ -131,8 +136,10 @@ bool verifyGPRSConnection()
 	return result;
 }
 
-void GetGPS()
+bool GetGPS()
 {
+	bool result=false;
+
 	float lat = 0;
 	float lon = 0;
 	float accuracy = 0;
@@ -147,11 +154,14 @@ void GetGPS()
 		log_d("Latitude: %3.3f \tLongitude: %3.3f", lat, lon);
 		log_d("Accuracy: %3.1f", accuracy);
 		log_d("Date: %d/%d/%d %d:%d%d", year, month, day, hour, min, sec);
+		result = true;
 	}
 	else {
 		log_d("Couldn't get GSM location");
 	}
 	log_d("Retrieving GSM location again as a string: %s", modemGSM.getGsmLocation());
+
+	return result;
 }
 
 void setup()
@@ -179,9 +189,15 @@ void loop()
 
 	if ((millis() - _timeout) >= CHECK_GPRS_EVERY_MS)
 	{
+		log_d("SignalQ: %d", modemGSM.getSignalQuality());
 		_timeout=millis();
 		if(verifyGPRSConnection()) {
-			GetGPS();
+			// if(!GetGPS()) {
+			// 	digitalWrite(PIN_LED, LOW);
+			// }
+			// else {
+			// 	digitalWrite(PIN_LED, HIGH);
+			// }
 		}
 	}
 
@@ -191,4 +207,4 @@ void loop()
 	// único delay no loop de 10ms (desconsiderando a função de reconexão, que possui delay para exibição do display)
 	delay(10);
 }
-
+*/

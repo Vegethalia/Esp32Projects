@@ -39,7 +39,7 @@ void loop()
 		Serial.print(n);
 		Serial.println(" networks found");
 		for (int i = 0; i < n; ++i) { //Print SSID and RSSI for each network found
-			snprintf(buff, sizeof(buff), "%2d: %s (%ddb) Channel=%d %s", 
+			snprintf(buff, sizeof(buff), "%2d: %s (%ddb) Channel=%d %s",
 				i, WiFi.SSID(i).c_str(), WiFi.RSSI(i), WiFi.channel(i), (WiFi.encryptionType(i) == WIFI_AUTH_OPEN)?" ":"*");
 			Serial.println(buff);
 
@@ -58,7 +58,7 @@ void loop()
   	Serial.print(".");
 	}
  	Serial.println("");
-	snprintf(buff, sizeof(buff), "Connected!! IP=[%s]  Gateway=[%s] DNS=[%s]", 
+	snprintf(buff, sizeof(buff), "Connected!! IP=[%s]  Gateway=[%s] DNS=[%s]",
 		WiFi.localIP().toString().c_str(), WiFi.gatewayIP().toString().c_str(), WiFi.dnsIP().toString().c_str());
 	Serial.println(buff);
 
