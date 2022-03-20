@@ -9,7 +9,8 @@
 #define SCREEN_WIDTH 128 // OLED display width, in pixels
 #define SCREEN_HEIGHT 64 // OLED display height, in pixels
 
-U8G2_SH1106_128X64_NONAME_1_SW_I2C u8g2(U8G2_R0, PIN_I2C_SCL, PIN_I2C_SDA);
+//U8G2_SH1106_128X64_NONAME_2_HW_I2C u8g2(U8G2_R0, PIN_I2C_SCL, PIN_I2C_SDA);
+U8G2_SSD1306_128X64_NONAME_1_HW_I2C u8g2(U8G2_R0, PIN_I2C_SCL, PIN_I2C_SDA);
 
 // Declaration for an SSD1306 display connected to I2C (SDA, SCL pins) . Reset pin=-1 (screen does not have reset pin)
 //Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);
@@ -34,7 +35,7 @@ void setup()
   //  display.setTextColor(WHITE);
   //  display.setCursor(0, 10);
   //  display.println("Hello, world!");// Display static text
-  //  display.display(); 
+  //  display.display();
   // }
 }
 
